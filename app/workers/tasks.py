@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from sqlalchemy import select
+
+from app.archive.reader import get_reader
+from app.archive.types import is_supported_archive
+from app.archive.identity import compute_archive_id
+from app.core.config import get_settings
+from app.db.session import SessionLocal
+from app.image.thumbnails import generate_thumbnail, get_image_size
+from app.models import Archive, ArchivePage, ArchiveTag, Tag
+from app.workers.celery_app import celery_app
+
+
+@celery_app.task(name="index_archive")
+def index_archive_task(archive_id: str, tags: str = "") -> dict:
+    settings = get_settings()
+    with SessionLocal() as db:
+        archive = db.get(Archive, archive_id)
+        if not archive:
+            return {"success": False, "error": "archive not found"}
+
+        reader = get_reader(archive.file_path)
+        image_paths = reader.list_images()
+
+        archive.pages.clear()
+        for index, inner_path in enumerate(image_paths, start=1):
+            width = height = byte_size = None
+            if index == 1:
+                first_page = reader.read_file(inner_path)
+                width, height = get_image_size(first_page)
+                byte_size = len(first_page)
+                thumb_path = settings.thumb_dir / archive.id[:2] / f"{archive.id}.webp"
+                archive.cover_hash = generate_thumbnail(first_page, thumb_path)
+                archive.cover_path = str(thumb_path)
+
+            archive.pages.append(
+                ArchivePage(
+                    page_index=index,
+                    inner_path=inner_path,
+                    width=width,
+                    height=height,
+                    byte_size=byte_size,
+                )
+            )
+
+        archive.page_count = len(image_paths)
+        _replace_tags(db, archive, tags)
+        db.commit()
+        return {"success": True, "pages": len(image_paths)}
+
+
+@celery_app.task(name="scan_library")
+def scan_library_task() -> dict:
+    settings = get_settings()
+    imported = 0
+    skipped = 0
+    with SessionLocal() as db:
+        for path in settings.archive_dir.iterdir():
+            if not path.is_file() or not is_supported_archive(path):
+                continue
+
+            archive_id = compute_archive_id(path)
+            archive = db.get(Archive, archive_id)
+            if archive:
+                skipped += 1
+                continue
+
+            stat = path.stat()
+            archive = Archive(
+                id=archive_id,
+                title=path.stem,
+                filename=path.name,
+                file_path=str(path),
+                extension=path.suffix.lower().lstrip("."),
+                file_size=stat.st_size,
+            )
+            db.add(archive)
+            db.commit()
+            index_archive_task.run(archive.id, "")
+            imported += 1
+
+    return {"success": True, "imported": imported, "skipped": skipped}
+
+
+def _replace_tags(db, archive: Archive, tags: str) -> None:
+    archive.tag_links.clear()
+    parsed = [_parse_tag(item) for item in tags.split(",") if item.strip()]
+    for namespace, name in parsed:
+        normalized_name = name.lower()
+        tag = db.scalar(select(Tag).where(Tag.namespace == namespace, Tag.normalized_name == normalized_name))
+        if not tag:
+            tag = Tag(namespace=namespace, name=name, normalized_name=normalized_name)
+            db.add(tag)
+            db.flush()
+        archive.tag_links.append(ArchiveTag(tag=tag))
+
+
+def _parse_tag(raw: str) -> tuple[str, str]:
+    value = raw.strip()
+    if ":" in value:
+        namespace, name = value.split(":", 1)
+        return namespace.strip().lower(), name.strip()
+    return "", value

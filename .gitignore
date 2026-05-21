@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
+frontend/package-lock.json
+storage/archives/*
+storage/thumbs/*
+storage/cache/*
+storage/*.db
+!storage/archives/.gitkeep
+!storage/thumbs/.gitkeep
+!storage/cache/.gitkeep
