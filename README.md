@@ -30,7 +30,9 @@ sudo apt-get install zip unrar 7zip
 scripts/convert-to-zip.sh --cbz -d storage/archives /path/to/books
 ```
 
-The conversion script extracts each source archive to a temporary directory, then repacks it as ZIP/CBZ. It uses `unrar` for RAR when available, and `7z`/`7zz` for 7Z.
+If `unrar` is unavailable in your distro repositories, install `unar` instead. The conversion script extracts each source archive to a temporary directory, then repacks it as ZIP/CBZ. It uses `unrar` for RAR when available, `7z`/`7zz` for 7Z, and `unar` as a fallback.
+
+You can also start conversions from the web UI at `/convert`. The UI creates background conversion jobs, shows progress, and keeps recent job history. It supports server-side paths and browser file uploads. Uploaded sources go to `ARCHIVE_DIR` when the destination path is empty. Local light mode runs these jobs in a background thread; Docker and full local mode use the Celery worker.
 
 ## Run
 

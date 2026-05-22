@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.image.thumbnails import generate_thumbnail, get_image_size
 from app.models import Archive, ArchivePage, ArchiveTag, Tag
+from app.services.conversions import run_conversion_job
 from app.workers.celery_app import celery_app
 
 
@@ -84,6 +85,11 @@ def scan_library_task() -> dict:
             imported += 1
 
     return {"success": True, "imported": imported, "skipped": skipped}
+
+
+@celery_app.task(name="convert_archives")
+def convert_archives_task(job_id: int) -> dict:
+    return run_conversion_job(job_id)
 
 
 def _replace_tags(db, archive: Archive, tags: str) -> None:

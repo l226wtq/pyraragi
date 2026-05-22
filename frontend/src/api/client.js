@@ -21,6 +21,26 @@ export async function uploadArchive(formData) {
   return fetchJson("/api/archives", { method: "POST", body: formData });
 }
 
+export async function fetchConversionJobs() {
+  return fetchJson("/api/conversions?limit=50");
+}
+
+export async function fetchConversionTools() {
+  return fetchJson("/api/conversions/tools");
+}
+
+export async function createConversionJob(payload) {
+  return fetchJson("/api/conversions", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadConversionArchive(formData) {
+  return fetchJson("/api/conversions/upload", { method: "POST", body: formData });
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   const contentType = response.headers.get("content-type") || "";

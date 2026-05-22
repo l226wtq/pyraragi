@@ -93,5 +93,28 @@ class ReadingProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class ConversionJob(Base):
+    __tablename__ = "conversion_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_path: Mapped[str] = mapped_column(Text)
+    destination_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_extension: Mapped[str] = mapped_column(String(8), default="cbz")
+    overwrite: Mapped[bool] = mapped_column(Boolean, default=False)
+    delete_source: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    current_source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_files: Mapped[int] = mapped_column(Integer, default=0)
+    completed_files: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_files: Mapped[int] = mapped_column(Integer, default=0)
+    failed_files: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(Text, default="")
+    log: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 Index("ix_archives_title_trgm", Archive.title, postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"})
 Index("ix_tags_normalized_name_trgm", Tag.normalized_name, postgresql_using="gin", postgresql_ops={"normalized_name": "gin_trgm_ops"})

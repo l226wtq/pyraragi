@@ -20,7 +20,9 @@ RUN apt-get update \
         libmagic1 \
         libvips42 \
         p7zip-full \
+        unar \
         unrar-free \
+        zip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -390,7 +390,8 @@ button:hover {
   font-size: 13px;
 }
 
-.upload-layout {
+.upload-layout,
+.conversion-layout {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
   gap: 28px;
@@ -431,6 +432,34 @@ button:hover {
   text-align: left;
 }
 
+.wide-input {
+  width: 100%;
+}
+
+.choice-row,
+.check-line,
+.job-summary,
+.history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.choice-row {
+  justify-content: flex-start;
+  margin: 12px 0;
+}
+
+.check-line {
+  justify-content: flex-start;
+  margin: 10px 0;
+  text-align: left;
+}
+
+.danger-check {
+  color: #f1b3a8;
+}
+
 .return-link {
   margin-top: 16px;
 }
@@ -451,6 +480,87 @@ button:hover {
 
 .upload-table .failed {
   color: var(--danger);
+}
+
+.conversion-panel {
+  font-size: 13px;
+}
+
+.tool-strip {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.upload-source-box {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.compact-drop {
+  min-height: 86px;
+}
+
+.tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-chip {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 5px 8px;
+  background: var(--panel-dark);
+  color: #f1b3a8;
+}
+
+.tool-chip.ready {
+  color: #b9e7c1;
+}
+
+.job-summary {
+  justify-content: space-between;
+  margin: 8px 0;
+}
+
+.job-detail {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  color: var(--muted);
+}
+
+.job-log {
+  width: 100%;
+  max-height: 260px;
+  margin: 12px 0 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px;
+  background: #25272d;
+  color: var(--ink);
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.history-section {
+  width: min(1180px, 96%);
+  margin: 22px auto 0;
+}
+
+.history-head {
+  justify-content: center;
+}
+
+.conversion-table .failed {
+  color: var(--danger);
+}
+
+.conversion-table .completed {
+  color: #b9e7c1;
 }
 
 .reader-shell {
@@ -617,6 +727,7 @@ button:hover {
   }
 
   .upload-layout,
+  .conversion-layout,
   .overview-head {
     grid-template-columns: 1fr;
   }
