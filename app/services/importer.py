@@ -16,7 +16,7 @@ from app.workers.tasks import index_archive_task
 
 def import_uploaded_archive(db: Session, source_path: Path, original_filename: str, tags: str = "") -> Archive:
     if not is_supported_archive(original_filename):
-        raise ValueError("Only .zip and .cbz are supported in this first scaffold.")
+        raise ValueError("Only .zip and .cbz archives are supported.")
 
     settings = get_settings()
     archive_id = compute_archive_id(source_path)

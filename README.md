@@ -7,7 +7,21 @@ This is an early scaffold focused on the core architecture:
 - PostgreSQL stores durable metadata and searchable relationships.
 - Redis is used for Celery and short-lived cache/locks.
 - Celery handles archive scanning, page indexing, and thumbnail generation.
-- The frontend is served by FastAPI templates and static assets.
+- The frontend is a Vue 3 SPA served by FastAPI in production.
+- Archives are intentionally limited to ZIP/CBZ.
+
+## Archive Format Scope
+
+Pyrragi is ZIP-only by design. It accepts `.zip` and `.cbz` files, where CBZ is just a ZIP archive with a comic-book extension.
+
+RAR/CBR and 7Z/CB7 are intentionally out of scope for now:
+
+- RAR and 7Z often have weaker random-read behavior, especially solid archives.
+- RAR support commonly depends on external tools such as `unrar` or `unar`.
+- 7Z support adds more decoding complexity and can make page seeking slower.
+- Mobile apps benefit from a stable server-side page API instead of format-specific client logic.
+
+The recommended library convention is to normalize imported books to `.zip` or `.cbz`. The HTTP API can stay stable even if the storage implementation changes later.
 
 ## Run
 
