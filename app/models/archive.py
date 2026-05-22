@@ -18,6 +18,8 @@ class Archive(Base):
     extension: Mapped[str] = mapped_column(String(16), index=True)
     file_size: Mapped[int] = mapped_column(BigInteger, default=0)
     file_mtime: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    partial_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    full_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     page_count: Mapped[int] = mapped_column(Integer, default=0, index=True)
     cover_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
@@ -114,6 +116,56 @@ class ConversionJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BackgroundJob(Base):
+    __tablename__ = "background_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_type: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    stop_requested: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    total_items: Mapped[int] = mapped_column(Integer, default=0)
+    completed_items: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_items: Mapped[int] = mapped_column(Integer, default=0)
+    failed_items: Mapped[int] = mapped_column(Integer, default=0)
+    current_item: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+    log: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class FileDuplicateGroup(Base):
+    __tablename__ = "file_duplicate_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_size: Mapped[int] = mapped_column(BigInteger, index=True)
+    partial_hash: Mapped[str] = mapped_column(String(64), index=True)
+    full_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    member_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    members: Mapped[list[FileDuplicateMember]] = relationship(
+        back_populates="group",
+        cascade="all, delete-orphan",
+        order_by="FileDuplicateMember.file_path",
+    )
+
+
+class FileDuplicateMember(Base):
+    __tablename__ = "file_duplicate_members"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("file_duplicate_groups.id", ondelete="CASCADE"), index=True)
+    archive_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    file_path: Mapped[str] = mapped_column(Text)
+    filename: Mapped[str] = mapped_column(String(512))
+    file_size: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    group: Mapped[FileDuplicateGroup] = relationship(back_populates="members")
 
 
 Index("ix_archives_title_trgm", Archive.title, postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"})

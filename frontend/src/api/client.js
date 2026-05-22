@@ -17,6 +17,22 @@ export async function scanLibrary() {
   return fetchJson("/api/library/scan", { method: "POST", headers: jsonHeaders });
 }
 
+export async function fetchJobs() {
+  return fetchJson("/api/jobs");
+}
+
+export async function startJob(jobType) {
+  return fetchJson(`/api/jobs/${jobType}`, { method: "POST", headers: jsonHeaders });
+}
+
+export async function stopJob(jobId) {
+  return fetchJson(`/api/jobs/${jobId}/stop`, { method: "POST", headers: jsonHeaders });
+}
+
+export async function fetchDuplicateGroups() {
+  return fetchJson("/api/jobs/duplicates/groups");
+}
+
 export async function uploadArchive(formData) {
   return fetchJson("/api/archives", { method: "POST", body: formData });
 }

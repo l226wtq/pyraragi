@@ -66,6 +66,8 @@ def archive_to_dict(archive: Archive) -> dict:
         "filename": archive.filename,
         "extension": archive.extension,
         "file_size": archive.file_size,
+        "partial_hash": archive.partial_hash,
+        "full_sha256": archive.full_sha256,
         "page_count": archive.page_count,
         "is_new": archive.is_new,
         "last_read_at": archive.last_read_at,

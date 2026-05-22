@@ -31,6 +31,7 @@ def import_uploaded_archive(db: Session, source_path: Path, original_filename: s
         existing.file_path = str(target)
         existing.file_size = stat.st_size
         existing.file_mtime = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+        existing.partial_hash = existing.partial_hash or archive_id
         archive = existing
     else:
         title = Path(original_filename).stem
@@ -42,6 +43,7 @@ def import_uploaded_archive(db: Session, source_path: Path, original_filename: s
             extension=extension.lstrip("."),
             file_size=stat.st_size,
             file_mtime=datetime.fromtimestamp(stat.st_mtime, timezone.utc),
+            partial_hash=archive_id,
         )
         db.add(archive)
 

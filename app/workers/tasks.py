@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.image.thumbnails import generate_thumbnail, get_image_size
 from app.models import Archive, ArchivePage, ArchiveTag, Tag
+from app.services.background_jobs import run_background_job
 from app.services.conversions import run_conversion_job
 from app.workers.celery_app import celery_app
 
@@ -78,6 +79,7 @@ def scan_library_task() -> dict:
                 file_path=str(path),
                 extension=path.suffix.lower().lstrip("."),
                 file_size=stat.st_size,
+                partial_hash=archive_id,
             )
             db.add(archive)
             db.commit()
@@ -90,6 +92,11 @@ def scan_library_task() -> dict:
 @celery_app.task(name="convert_archives")
 def convert_archives_task(job_id: int) -> dict:
     return run_conversion_job(job_id)
+
+
+@celery_app.task(name="background_job")
+def background_job_task(job_id: int) -> dict:
+    return run_background_job(job_id)
 
 
 def _replace_tags(db, archive: Archive, tags: str) -> None:

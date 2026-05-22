@@ -563,6 +563,91 @@ button:hover {
   color: #b9e7c1;
 }
 
+.jobs-panel {
+  font-size: 13px;
+}
+
+.job-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px auto 18px;
+}
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  width: min(1180px, 96%);
+  margin: 0 auto;
+}
+
+.job-card,
+.duplicate-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-dark);
+  padding: 10px;
+  text-align: left;
+}
+
+.job-card-head,
+.job-card-actions,
+.duplicate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.status-pill {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 6px;
+  background: var(--body);
+  color: var(--muted);
+}
+
+.status-pill.running,
+.status-pill.queued {
+  color: #c9def4;
+}
+
+.status-pill.completed {
+  color: #b9e7c1;
+}
+
+.status-pill.failed,
+.status-pill.canceled {
+  color: #f1b3a8;
+}
+
+.duplicates-section {
+  width: min(1180px, 96%);
+  margin: 24px auto 0;
+}
+
+.duplicate-card {
+  margin-bottom: 12px;
+}
+
+.duplicate-head {
+  margin-bottom: 8px;
+}
+
+.duplicate-head code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.duplicate-table {
+  max-width: 100%;
+}
+
 .reader-shell {
   min-height: 100vh;
 }
