@@ -91,7 +91,7 @@ Background maintenance jobs live at `/jobs`. You can start and stop library scan
 2. Narrow candidates with SHA-1 of the first 512000 bytes.
 3. Confirm duplicates with full-file SHA-256.
 
-Page fingerprint scans read each indexed page, store per-page MD5/SHA-256, and mark byte-identical repeated pages as `duplicate`. These fingerprints are the foundation for later ad-page rules and archive cleanup jobs.
+Page fingerprint scans read each indexed page, store per-page MD5/SHA-256 plus a fast 64-bit dHash perceptual hash, and mark byte-identical repeated pages as `duplicate`. Visually similar pages within `PERCEPTUAL_HASH_DISTANCE_THRESHOLD` are marked as `similar` but are not hidden automatically. These fingerprints are the foundation for later ad-page rules and archive cleanup jobs.
 
 To build the Vue SPA for FastAPI to serve directly:
 

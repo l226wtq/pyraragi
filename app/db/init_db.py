@@ -41,6 +41,10 @@ def _ensure_archive_page_fingerprint_columns() -> None:
         statements.append("ALTER TABLE archive_pages ADD COLUMN content_md5 VARCHAR(32)")
     if "content_sha256" not in existing:
         statements.append("ALTER TABLE archive_pages ADD COLUMN content_sha256 VARCHAR(64)")
+    if "content_dhash" not in existing:
+        statements.append("ALTER TABLE archive_pages ADD COLUMN content_dhash VARCHAR(16)")
+    if "dhash_distance" not in existing:
+        statements.append("ALTER TABLE archive_pages ADD COLUMN dhash_distance INTEGER")
     if "page_type" not in existing:
         statements.append("ALTER TABLE archive_pages ADD COLUMN page_type VARCHAR(32) DEFAULT 'normal'")
     if "hidden" not in existing:

@@ -9,6 +9,7 @@ from app.archive.reader import get_reader
 from app.archive.types import is_supported_archive
 from app.core.config import get_settings
 from app.db.session import SessionLocal
+from app.image.fingerprints import compute_dhash
 from app.image.thumbnails import generate_thumbnail, get_image_size
 from app.models import Archive, ArchivePage, ArchiveTag, Tag
 from app.services.background_jobs import run_background_job
@@ -47,6 +48,7 @@ def index_archive_task(archive_id: str, tags: str = "") -> dict:
                     byte_size=byte_size,
                     content_md5=md5_bytes(page_content),
                     content_sha256=sha256_bytes(page_content),
+                    content_dhash=compute_dhash(page_content),
                 )
             )
 

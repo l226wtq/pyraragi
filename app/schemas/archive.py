@@ -28,6 +28,8 @@ class ArchivePageOut(BaseModel):
     byte_size: int | None = None
     content_md5: str | None = None
     content_sha256: str | None = None
+    content_dhash: str | None = None
+    dhash_distance: int | None = None
     page_type: str = "normal"
     hidden: bool = False
     duplicate_of_archive_id: str | None = None

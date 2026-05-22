@@ -11,6 +11,7 @@ from app.archive.identity import compute_archive_id, compute_full_sha256, comput
 from app.archive.reader import get_reader
 from app.archive.types import is_supported_archive
 from app.core.config import get_settings
+from app.image.fingerprints import compute_dhash, hash_bands, hash_distance
 from app.image.thumbnails import generate_thumbnail, get_image_size
 from app.models import Archive, ArchivePage, BackgroundJob, FileDuplicateGroup, FileDuplicateMember
 from app.services.background_jobs import append_job_log, finish_job, should_stop, start_job
@@ -202,14 +203,20 @@ def check_file_duplicates_job(db: Session, job: BackgroundJob) -> dict:
 
 
 def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
+    settings = get_settings()
     archives = list(db.scalars(select(Archive).order_by(Archive.title)))
     total_pages = sum(archive.page_count for archive in archives)
     start_job(job, total_pages)
-    append_job_log(job, f"Scanning page fingerprints for {len(archives)} archive(s).")
+    append_job_log(
+        job,
+        f"Scanning page fingerprints for {len(archives)} archive(s), perceptual threshold={settings.perceptual_hash_distance_threshold}.",
+    )
     db.commit()
 
     seen: dict[str, tuple[str, int]] = {}
+    dhash_index: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
     duplicate_count = 0
+    similar_count = 0
 
     for archive in archives:
         if not archive.pages:
@@ -222,13 +229,14 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
                 append_job_log(job, "Page fingerprint scan stopped by user.")
                 finish_job(job, "canceled")
                 db.commit()
-                return {**_job_result(job), "duplicates": duplicate_count}
+                return {**_job_result(job), "duplicates": duplicate_count, "similar": similar_count}
 
             job.current_item = f"{archive.filename} page {page.page_index}"
             try:
                 content = reader.read_file(page.inner_path)
                 page.content_md5 = md5_bytes(content)
                 page.content_sha256 = sha256_bytes(content)
+                page.content_dhash = compute_dhash(content)
                 page.byte_size = len(content)
                 if page.width is None or page.height is None:
                     page.width, page.height = get_image_size(content)
@@ -239,14 +247,30 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
                     page.hidden = True
                     page.duplicate_of_archive_id = first_seen[0]
                     page.duplicate_of_page_index = first_seen[1]
+                    page.dhash_distance = 0
                     duplicate_count += 1
                 else:
-                    page.page_type = "normal"
-                    page.hidden = False
-                    page.duplicate_of_archive_id = None
-                    page.duplicate_of_page_index = None
+                    similar_page = _find_similar_hash(
+                        page.content_dhash,
+                        dhash_index,
+                        settings.perceptual_hash_distance_threshold,
+                    )
+                    if similar_page:
+                        page.page_type = "similar"
+                        page.hidden = False
+                        page.duplicate_of_archive_id = similar_page[1]
+                        page.duplicate_of_page_index = similar_page[2]
+                        page.dhash_distance = similar_page[3]
+                        similar_count += 1
+                    else:
+                        page.page_type = "normal"
+                        page.hidden = False
+                        page.duplicate_of_archive_id = None
+                        page.duplicate_of_page_index = None
+                        page.dhash_distance = None
                     seen[page.content_md5] = (archive.id, page.page_index)
 
+                _add_hash_to_index(dhash_index, page.content_dhash, archive.id, page.page_index)
                 job.completed_items += 1
             except Exception as exc:  # noqa: BLE001 - keep processing remaining pages
                 job.failed_items += 1
@@ -255,16 +279,51 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
             finally:
                 db.commit()
 
-    append_job_log(job, f"Marked {duplicate_count} duplicate page(s).")
+    append_job_log(job, f"Marked {duplicate_count} duplicate page(s) and {similar_count} similar page(s).")
     finish_job(job, "failed" if job.failed_items else "completed")
     db.commit()
-    return {**_job_result(job), "duplicates": duplicate_count}
+    return {**_job_result(job), "duplicates": duplicate_count, "similar": similar_count}
 
 
 def _archive_paths(root: Path) -> list[Path]:
     if not root.exists():
         return []
     return sorted(path for path in root.rglob("*") if path.is_file() and is_supported_archive(path))
+
+
+def _find_similar_hash(
+    content_hash: str | None,
+    hash_index: dict[str, list[tuple[str, str, int]]],
+    threshold: int,
+) -> tuple[str, str, int, int] | None:
+    if not content_hash:
+        return None
+
+    candidates = {}
+    for band in hash_bands(content_hash):
+        for candidate_hash, archive_id, page_index in hash_index.get(band, []):
+            candidates[(archive_id, page_index)] = candidate_hash
+
+    best: tuple[str, str, int, int] | None = None
+    for (archive_id, page_index), candidate_hash in candidates.items():
+        distance = hash_distance(content_hash, candidate_hash)
+        if distance is None or distance > threshold:
+            continue
+        if best is None or distance < best[3]:
+            best = (candidate_hash, archive_id, page_index, distance)
+    return best
+
+
+def _add_hash_to_index(
+    hash_index: dict[str, list[tuple[str, str, int]]],
+    content_hash: str | None,
+    archive_id: str,
+    page_index: int,
+) -> None:
+    if not content_hash:
+        return
+    for band in hash_bands(content_hash):
+        hash_index[band].append((content_hash, archive_id, page_index))
 
 
 def _index_archive_pages(db: Session, archive: Archive) -> None:
@@ -288,6 +347,7 @@ def _index_archive_pages(db: Session, archive: Archive) -> None:
                 byte_size=byte_size,
                 content_md5=md5_bytes(content),
                 content_sha256=sha256_bytes(content),
+                content_dhash=compute_dhash(content),
             )
         )
 

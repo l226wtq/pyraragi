@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     thumb_dir: Path = Field(default=Path("/data/thumbs"))
     cache_dir: Path = Field(default=Path("/data/cache"))
     thumbnail_format: str = "webp"
+    perceptual_hash_distance_threshold: int = 6
     max_upload_mb: int = 2048
 
 

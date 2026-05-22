@@ -86,6 +86,8 @@ def list_pages(archive_id: str, db: Session = Depends(get_db)) -> dict:
                 "byte_size": page.byte_size,
                 "content_md5": page.content_md5,
                 "content_sha256": page.content_sha256,
+                "content_dhash": page.content_dhash,
+                "dhash_distance": page.dhash_distance,
                 "page_type": page.page_type,
                 "hidden": page.hidden,
                 "duplicate_of_archive_id": page.duplicate_of_archive_id,

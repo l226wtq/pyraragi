@@ -50,6 +50,8 @@ class ArchivePage(Base):
     byte_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content_md5: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    content_dhash: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    dhash_distance: Mapped[int | None] = mapped_column(Integer, nullable=True)
     page_type: Mapped[str] = mapped_column(String(32), default="normal", index=True)
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     duplicate_of_archive_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
