@@ -23,6 +23,15 @@ RAR/CBR and 7Z/CB7 are intentionally out of scope for now:
 
 The recommended library convention is to normalize imported books to `.zip` or `.cbz`. The HTTP API can stay stable even if the storage implementation changes later.
 
+For existing RAR/CBR or 7Z/CB7 libraries, convert them before import:
+
+```bash
+sudo apt-get install zip unrar 7zip
+scripts/convert-to-zip.sh --cbz -d storage/archives /path/to/books
+```
+
+The conversion script extracts each source archive to a temporary directory, then repacks it as ZIP/CBZ. It uses `unrar` for RAR when available, and `7z`/`7zz` for 7Z.
+
 ## Run
 
 ```bash
