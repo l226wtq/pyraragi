@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from app.archive.identity import compute_archive_id, compute_full_sha256, comput
 from app.archive.reader import get_reader
 from app.archive.types import is_supported_archive
 from app.core.config import get_settings
-from app.image.fingerprints import compute_dhash, hash_bands, hash_distance
+from app.image.fingerprints import compute_dhash, compute_phash, hash_distance
 from app.image.thumbnails import generate_thumbnail, get_image_size
 from app.models import Archive, ArchivePage, BackgroundJob, FileDuplicateGroup, FileDuplicateMember
 from app.services.background_jobs import append_job_log, finish_job, should_stop, start_job
@@ -209,12 +210,14 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
     start_job(job, total_pages)
     append_job_log(
         job,
-        f"Scanning page fingerprints for {len(archives)} archive(s), perceptual threshold={settings.perceptual_hash_distance_threshold}.",
+        "Scanning page fingerprints for "
+        f"{len(archives)} archive(s), dHash candidate threshold={settings.dhash_candidate_distance_threshold}, "
+        f"pHash threshold={settings.phash_distance_threshold}.",
     )
     db.commit()
 
     seen: dict[str, tuple[str, int]] = {}
-    dhash_index: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
+    dhash_index = _DHashIndex()
     duplicate_count = 0
     similar_count = 0
 
@@ -237,6 +240,7 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
                 page.content_md5 = md5_bytes(content)
                 page.content_sha256 = sha256_bytes(content)
                 page.content_dhash = compute_dhash(content)
+                page.content_phash = compute_phash(content)
                 page.byte_size = len(content)
                 if page.width is None or page.height is None:
                     page.width, page.height = get_image_size(content)
@@ -248,19 +252,23 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
                     page.duplicate_of_archive_id = first_seen[0]
                     page.duplicate_of_page_index = first_seen[1]
                     page.dhash_distance = 0
+                    page.phash_distance = 0
                     duplicate_count += 1
                 else:
-                    similar_page = _find_similar_hash(
+                    similar_page = _find_similar_page(
                         page.content_dhash,
+                        page.content_phash,
                         dhash_index,
-                        settings.perceptual_hash_distance_threshold,
+                        settings.dhash_candidate_distance_threshold,
+                        settings.phash_distance_threshold,
                     )
                     if similar_page:
                         page.page_type = "similar"
                         page.hidden = False
-                        page.duplicate_of_archive_id = similar_page[1]
-                        page.duplicate_of_page_index = similar_page[2]
-                        page.dhash_distance = similar_page[3]
+                        page.duplicate_of_archive_id = similar_page[2]
+                        page.duplicate_of_page_index = similar_page[3]
+                        page.dhash_distance = similar_page[4]
+                        page.phash_distance = similar_page[5]
                         similar_count += 1
                     else:
                         page.page_type = "normal"
@@ -268,9 +276,10 @@ def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
                         page.duplicate_of_archive_id = None
                         page.duplicate_of_page_index = None
                         page.dhash_distance = None
+                        page.phash_distance = None
                     seen[page.content_md5] = (archive.id, page.page_index)
 
-                _add_hash_to_index(dhash_index, page.content_dhash, archive.id, page.page_index)
+                _add_hash_to_index(dhash_index, page.content_dhash, page.content_phash, archive.id, page.page_index)
                 job.completed_items += 1
             except Exception as exc:  # noqa: BLE001 - keep processing remaining pages
                 job.failed_items += 1
@@ -291,39 +300,107 @@ def _archive_paths(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*") if path.is_file() and is_supported_archive(path))
 
 
-def _find_similar_hash(
-    content_hash: str | None,
-    hash_index: dict[str, list[tuple[str, str, int]]],
-    threshold: int,
-) -> tuple[str, str, int, int] | None:
-    if not content_hash:
+def _find_similar_page(
+    content_dhash: str | None,
+    content_phash: str | None,
+    hash_index: "_DHashIndex",
+    dhash_threshold: int,
+    phash_threshold: int,
+) -> tuple[str, str, str, int, int, int] | None:
+    if not content_dhash or not content_phash:
         return None
 
-    candidates = {}
-    for band in hash_bands(content_hash):
-        for candidate_hash, archive_id, page_index in hash_index.get(band, []):
-            candidates[(archive_id, page_index)] = candidate_hash
-
-    best: tuple[str, str, int, int] | None = None
-    for (archive_id, page_index), candidate_hash in candidates.items():
-        distance = hash_distance(content_hash, candidate_hash)
-        if distance is None or distance > threshold:
+    best: tuple[str, str, str, int, int, int] | None = None
+    for candidate_dhash, candidate_phash, archive_id, page_index, dhash_distance in hash_index.search(
+        content_dhash,
+        dhash_threshold,
+    ):
+        phash_distance = hash_distance(content_phash, candidate_phash)
+        if phash_distance is None or phash_distance > phash_threshold:
             continue
-        if best is None or distance < best[3]:
-            best = (candidate_hash, archive_id, page_index, distance)
+
+        if best is None or (phash_distance, dhash_distance) < (best[5], best[4]):
+            best = (candidate_dhash, candidate_phash, archive_id, page_index, dhash_distance, phash_distance)
     return best
 
 
 def _add_hash_to_index(
-    hash_index: dict[str, list[tuple[str, str, int]]],
-    content_hash: str | None,
+    hash_index: "_DHashIndex",
+    content_dhash: str | None,
+    content_phash: str | None,
     archive_id: str,
     page_index: int,
 ) -> None:
-    if not content_hash:
+    if not content_dhash or not content_phash:
         return
-    for band in hash_bands(content_hash):
-        hash_index[band].append((content_hash, archive_id, page_index))
+    hash_index.add(content_dhash, content_phash, archive_id, page_index)
+
+
+@dataclass(slots=True)
+class _DHashIndexItem:
+    phash: str
+    archive_id: str
+    page_index: int
+
+
+@dataclass(slots=True)
+class _DHashIndexNode:
+    dhash: str
+    items: list[_DHashIndexItem] = field(default_factory=list)
+    children: dict[int, "_DHashIndexNode"] = field(default_factory=dict)
+
+
+class _DHashIndex:
+    def __init__(self) -> None:
+        self.root: _DHashIndexNode | None = None
+
+    def add(self, dhash: str, phash: str, archive_id: str, page_index: int) -> None:
+        item = _DHashIndexItem(phash=phash, archive_id=archive_id, page_index=page_index)
+        if self.root is None:
+            self.root = _DHashIndexNode(dhash=dhash, items=[item])
+            return
+
+        node = self.root
+        while True:
+            distance = hash_distance(dhash, node.dhash)
+            if distance is None:
+                return
+            if distance == 0:
+                node.items.append(item)
+                return
+            child = node.children.get(distance)
+            if child is None:
+                node.children[distance] = _DHashIndexNode(dhash=dhash, items=[item])
+                return
+            node = child
+
+    def search(self, dhash: str, threshold: int) -> list[tuple[str, str, str, int, int]]:
+        if self.root is None:
+            return []
+        matches: list[tuple[str, str, str, int, int]] = []
+        self._search_node(self.root, dhash, threshold, matches)
+        return matches
+
+    def _search_node(
+        self,
+        node: _DHashIndexNode,
+        dhash: str,
+        threshold: int,
+        matches: list[tuple[str, str, str, int, int]],
+    ) -> None:
+        distance = hash_distance(dhash, node.dhash)
+        if distance is None:
+            return
+
+        if distance <= threshold:
+            for item in node.items:
+                matches.append((node.dhash, item.phash, item.archive_id, item.page_index, distance))
+
+        min_child_distance = max(1, distance - threshold)
+        max_child_distance = distance + threshold
+        for child_distance, child in node.children.items():
+            if min_child_distance <= child_distance <= max_child_distance:
+                self._search_node(child, dhash, threshold, matches)
 
 
 def _index_archive_pages(db: Session, archive: Archive) -> None:
@@ -348,6 +425,7 @@ def _index_archive_pages(db: Session, archive: Archive) -> None:
                 content_md5=md5_bytes(content),
                 content_sha256=sha256_bytes(content),
                 content_dhash=compute_dhash(content),
+                content_phash=compute_phash(content),
             )
         )
 
