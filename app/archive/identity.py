@@ -22,3 +22,11 @@ def compute_full_sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
         while chunk := handle.read(chunk_size):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def md5_bytes(content: bytes) -> str:
+    return hashlib.md5(content, usedforsecurity=False).hexdigest()
+
+
+def sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()

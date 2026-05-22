@@ -25,7 +25,7 @@ def list_jobs(limit: int = Query(default=50, ge=1, le=100), db: Session = Depend
 
 @router.post("/{job_type}")
 def start_job(
-    job_type: Literal["scan_library", "generate_thumbnails", "check_duplicates"],
+    job_type: Literal["scan_library", "generate_thumbnails", "check_duplicates", "scan_page_fingerprints"],
     db: Session = Depends(get_db),
 ) -> dict:
     job = create_background_job(db, job_type)

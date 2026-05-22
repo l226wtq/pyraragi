@@ -4,9 +4,9 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from app.archive.identity import compute_archive_id, md5_bytes, sha256_bytes
 from app.archive.reader import get_reader
 from app.archive.types import is_supported_archive
-from app.archive.identity import compute_archive_id
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.image.thumbnails import generate_thumbnail, get_image_size
@@ -29,14 +29,13 @@ def index_archive_task(archive_id: str, tags: str = "") -> dict:
 
         archive.pages.clear()
         for index, inner_path in enumerate(image_paths, start=1):
-            width = height = byte_size = None
+            page_content = reader.read_file(inner_path)
+            width, height = get_image_size(page_content)
+            byte_size = len(page_content)
             if index == 1:
-                first_page = reader.read_file(inner_path)
-                width, height = get_image_size(first_page)
-                byte_size = len(first_page)
                 thumbnail_format = normalize_thumbnail_format(settings.thumbnail_format)
                 thumb_path = settings.thumb_dir / archive.id[:2] / f"{archive.id}.{thumbnail_format}"
-                archive.cover_hash = generate_thumbnail(first_page, thumb_path, output_format=thumbnail_format)
+                archive.cover_hash = generate_thumbnail(page_content, thumb_path, output_format=thumbnail_format)
                 archive.cover_path = str(thumb_path)
 
             archive.pages.append(
@@ -46,6 +45,8 @@ def index_archive_task(archive_id: str, tags: str = "") -> dict:
                     width=width,
                     height=height,
                     byte_size=byte_size,
+                    content_md5=md5_bytes(page_content),
+                    content_sha256=sha256_bytes(page_content),
                 )
             )
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.archive.identity import compute_archive_id, compute_full_sha256, compute_partial_sha1
+from app.archive.identity import compute_archive_id, compute_full_sha256, compute_partial_sha1, md5_bytes, sha256_bytes
 from app.archive.reader import get_reader
 from app.archive.types import is_supported_archive
 from app.core.config import get_settings
@@ -201,6 +201,66 @@ def check_file_duplicates_job(db: Session, job: BackgroundJob) -> dict:
     return {**_job_result(job), "duplicate_groups": group_count}
 
 
+def scan_page_fingerprints_job(db: Session, job: BackgroundJob) -> dict:
+    archives = list(db.scalars(select(Archive).order_by(Archive.title)))
+    total_pages = sum(archive.page_count for archive in archives)
+    start_job(job, total_pages)
+    append_job_log(job, f"Scanning page fingerprints for {len(archives)} archive(s).")
+    db.commit()
+
+    seen: dict[str, tuple[str, int]] = {}
+    duplicate_count = 0
+
+    for archive in archives:
+        if not archive.pages:
+            _index_archive_pages(db, archive)
+            db.commit()
+
+        reader = get_reader(archive.file_path)
+        for page in archive.pages:
+            if should_stop(db, job):
+                append_job_log(job, "Page fingerprint scan stopped by user.")
+                finish_job(job, "canceled")
+                db.commit()
+                return {**_job_result(job), "duplicates": duplicate_count}
+
+            job.current_item = f"{archive.filename} page {page.page_index}"
+            try:
+                content = reader.read_file(page.inner_path)
+                page.content_md5 = md5_bytes(content)
+                page.content_sha256 = sha256_bytes(content)
+                page.byte_size = len(content)
+                if page.width is None or page.height is None:
+                    page.width, page.height = get_image_size(content)
+
+                first_seen = seen.get(page.content_md5)
+                if first_seen:
+                    page.page_type = "duplicate"
+                    page.hidden = True
+                    page.duplicate_of_archive_id = first_seen[0]
+                    page.duplicate_of_page_index = first_seen[1]
+                    duplicate_count += 1
+                else:
+                    page.page_type = "normal"
+                    page.hidden = False
+                    page.duplicate_of_archive_id = None
+                    page.duplicate_of_page_index = None
+                    seen[page.content_md5] = (archive.id, page.page_index)
+
+                job.completed_items += 1
+            except Exception as exc:  # noqa: BLE001 - keep processing remaining pages
+                job.failed_items += 1
+                job.error = str(exc)
+                append_job_log(job, f"Failed {archive.filename} page {page.page_index}: {exc}")
+            finally:
+                db.commit()
+
+    append_job_log(job, f"Marked {duplicate_count} duplicate page(s).")
+    finish_job(job, "failed" if job.failed_items else "completed")
+    db.commit()
+    return {**_job_result(job), "duplicates": duplicate_count}
+
+
 def _archive_paths(root: Path) -> list[Path]:
     if not root.exists():
         return []
@@ -213,15 +273,22 @@ def _index_archive_pages(db: Session, archive: Archive) -> None:
     archive.pages.clear()
 
     for index, inner_path in enumerate(image_paths, start=1):
-        width = height = byte_size = None
+        content = reader.read_file(inner_path)
+        width, height = get_image_size(content)
+        byte_size = len(content)
         if index == 1:
-            first_page = reader.read_file(inner_path)
-            width, height = get_image_size(first_page)
-            byte_size = len(first_page)
-            _generate_archive_cover(get_settings(), archive, first_page)
+            _generate_archive_cover(get_settings(), archive, content)
 
         archive.pages.append(
-            ArchivePage(page_index=index, inner_path=inner_path, width=width, height=height, byte_size=byte_size)
+            ArchivePage(
+                page_index=index,
+                inner_path=inner_path,
+                width=width,
+                height=height,
+                byte_size=byte_size,
+                content_md5=md5_bytes(content),
+                content_sha256=sha256_bytes(content),
+            )
         )
 
     archive.page_count = len(image_paths)

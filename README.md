@@ -85,11 +85,13 @@ Open http://127.0.0.1:5234. Vite proxies `/api` to the FastAPI backend.
 
 Put `.zip` or `.cbz` files in `storage/archives`, then click `Scan` on the library page. Uploading from `/upload` also works. Because `CELERY_TASK_ALWAYS_EAGER=true`, indexing and cover generation run immediately during the request.
 
-Background maintenance jobs live at `/jobs`. You can start and stop library scans, cover thumbnail generation, and strict file duplicate checks there. Duplicate checking uses three stages:
+Background maintenance jobs live at `/jobs`. You can start and stop library scans, cover thumbnail generation, page fingerprint scans, and strict file duplicate checks there. Duplicate checking uses three stages:
 
 1. Match files with the same byte size.
 2. Narrow candidates with SHA-1 of the first 512000 bytes.
 3. Confirm duplicates with full-file SHA-256.
+
+Page fingerprint scans read each indexed page, store per-page MD5/SHA-256, and mark byte-identical repeated pages as `duplicate`. These fingerprints are the foundation for later ad-page rules and archive cleanup jobs.
 
 To build the Vue SPA for FastAPI to serve directly:
 

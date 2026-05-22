@@ -25,6 +25,13 @@ class ArchivePageOut(BaseModel):
     inner_path: str
     width: int | None = None
     height: int | None = None
+    byte_size: int | None = None
+    content_md5: str | None = None
+    content_sha256: str | None = None
+    page_type: str = "normal"
+    hidden: bool = False
+    duplicate_of_archive_id: str | None = None
+    duplicate_of_page_index: int | None = None
 
 
 class SearchResult(BaseModel):

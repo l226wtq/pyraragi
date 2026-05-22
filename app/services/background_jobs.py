@@ -9,7 +9,7 @@ from app.db.session import SessionLocal
 from app.models import BackgroundJob
 
 MAX_LOG_LINES = 300
-JOB_TYPES = {"scan_library", "generate_thumbnails", "check_duplicates"}
+JOB_TYPES = {"scan_library", "generate_thumbnails", "check_duplicates", "scan_page_fingerprints"}
 
 
 def create_background_job(db: Session, job_type: str) -> BackgroundJob:
@@ -91,7 +91,12 @@ def should_stop(db: Session, job: BackgroundJob) -> bool:
 
 
 def run_background_job(job_id: int) -> dict:
-    from app.services.library_jobs import check_file_duplicates_job, generate_thumbnails_job, scan_library_job
+    from app.services.library_jobs import (
+        check_file_duplicates_job,
+        generate_thumbnails_job,
+        scan_library_job,
+        scan_page_fingerprints_job,
+    )
 
     with SessionLocal() as db:
         job = db.get(BackgroundJob, job_id)
@@ -105,6 +110,8 @@ def run_background_job(job_id: int) -> dict:
                 return generate_thumbnails_job(db, job)
             if job.job_type == "check_duplicates":
                 return check_file_duplicates_job(db, job)
+            if job.job_type == "scan_page_fingerprints":
+                return scan_page_fingerprints_job(db, job)
             raise ValueError(f"Unsupported job type: {job.job_type}")
         except Exception as exc:  # noqa: BLE001 - persisted job state is surfaced to the UI
             job.error = str(exc)

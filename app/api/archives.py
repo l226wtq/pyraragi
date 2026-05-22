@@ -83,6 +83,13 @@ def list_pages(archive_id: str, db: Session = Depends(get_db)) -> dict:
                 "inner_path": page.inner_path,
                 "width": page.width,
                 "height": page.height,
+                "byte_size": page.byte_size,
+                "content_md5": page.content_md5,
+                "content_sha256": page.content_sha256,
+                "page_type": page.page_type,
+                "hidden": page.hidden,
+                "duplicate_of_archive_id": page.duplicate_of_archive_id,
+                "duplicate_of_page_index": page.duplicate_of_page_index,
             }
             for page in archive.pages
         ],

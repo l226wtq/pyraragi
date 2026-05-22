@@ -12,6 +12,9 @@
       <button class="stdbtn" type="button" @click="runJob('check_duplicates')">
         <CopyCheck :size="16" /> Check Duplicates
       </button>
+      <button class="stdbtn" type="button" @click="runJob('scan_page_fingerprints')">
+        <Fingerprint :size="16" /> Scan Page MD5
+      </button>
       <button class="icon-link" type="button" @click="refreshAll"><RefreshCw :size="18" /></button>
     </section>
 
@@ -75,7 +78,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from "vue";
-import { CopyCheck, FolderSearch, Image, RefreshCw, Square } from "lucide-vue-next";
+import { CopyCheck, Fingerprint, FolderSearch, Image, RefreshCw, Square } from "lucide-vue-next";
 import { fetchDuplicateGroups, fetchJobs, startJob, stopJob } from "@/api/client";
 
 const jobs = ref([]);
@@ -140,6 +143,7 @@ function labelFor(jobType) {
     scan_library: "Scan Library",
     generate_thumbnails: "Generate Covers",
     check_duplicates: "Check Duplicates",
+    scan_page_fingerprints: "Scan Page Fingerprints",
   }[jobType] || jobType;
 }
 
