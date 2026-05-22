@@ -28,6 +28,19 @@ docker compose up --build
 
 Light mode uses SQLite and runs Celery tasks inline inside the FastAPI process. It is the quickest way to debug API, UI, upload, scanning, and reading flows.
 
+Install the system image library used by `pyvips` before running thumbnail generation locally:
+
+```bash
+sudo apt-get install libvips42
+```
+
+WebP pages are supported by default. JPEG XL pages (`.jxl`) are supported when the installed libvips has JPEG XL support. You can also choose the generated cover thumbnail format:
+
+```bash
+THUMBNAIL_FORMAT=webp  # default
+THUMBNAIL_FORMAT=jxl
+```
+
 ```bash
 cd pyrragi
 make install

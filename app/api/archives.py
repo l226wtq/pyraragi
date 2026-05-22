@@ -66,7 +66,7 @@ def get_cover(archive_id: str, db: Session = Depends(get_db)) -> FileResponse:
     cover_path = Path(archive.cover_path)
     if not cover_path.exists():
         raise HTTPException(status_code=404, detail="Cover not found")
-    return FileResponse(cover_path, media_type="image/webp")
+    return FileResponse(cover_path, media_type=_media_type(cover_path.name))
 
 
 @router.get("/{archive_id}/pages")
@@ -106,4 +106,6 @@ def _media_type(path: str) -> str:
         ".webp": "image/webp",
         ".bmp": "image/bmp",
         ".avif": "image/avif",
+        ".jxl": "image/jxl",
+        ".jpegxl": "image/jxl",
     }.get(suffix, "application/octet-stream")

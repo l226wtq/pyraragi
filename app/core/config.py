@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     archive_dir: Path = Field(default=Path("/data/archives"))
     thumb_dir: Path = Field(default=Path("/data/thumbs"))
     cache_dir: Path = Field(default=Path("/data/cache"))
+    thumbnail_format: str = "webp"
     max_upload_mb: int = 2048
 
 

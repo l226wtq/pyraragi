@@ -18,6 +18,7 @@ RUN apt-get update \
         build-essential \
         file \
         libmagic1 \
+        libvips42 \
         p7zip-full \
         unrar-free \
     && rm -rf /var/lib/apt/lists/*

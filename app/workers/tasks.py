@@ -32,8 +32,9 @@ def index_archive_task(archive_id: str, tags: str = "") -> dict:
                 first_page = reader.read_file(inner_path)
                 width, height = get_image_size(first_page)
                 byte_size = len(first_page)
-                thumb_path = settings.thumb_dir / archive.id[:2] / f"{archive.id}.webp"
-                archive.cover_hash = generate_thumbnail(first_page, thumb_path)
+                thumbnail_format = normalize_thumbnail_format(settings.thumbnail_format)
+                thumb_path = settings.thumb_dir / archive.id[:2] / f"{archive.id}.{thumbnail_format}"
+                archive.cover_hash = generate_thumbnail(first_page, thumb_path, output_format=thumbnail_format)
                 archive.cover_path = str(thumb_path)
 
             archive.pages.append(
@@ -104,3 +105,12 @@ def _parse_tag(raw: str) -> tuple[str, str]:
         namespace, name = value.split(":", 1)
         return namespace.strip().lower(), name.strip()
     return "", value
+
+
+def normalize_thumbnail_format(value: str) -> str:
+    value = (value or "webp").lower().lstrip(".")
+    if value == "jpeg":
+        return "jpg"
+    if value in {"webp", "jxl", "jpg"}:
+        return value
+    return "webp"

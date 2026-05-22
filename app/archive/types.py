@@ -1,6 +1,6 @@
 from pathlib import Path
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif", ".jxl", ".jpegxl"}
 ARCHIVE_EXTENSIONS = {".zip", ".cbz"}
 
 
